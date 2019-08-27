@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<unload unload_date="2019-03-19 13:44:24">
+<sysauto_script action="INSERT_OR_UPDATE">
+<active>true</active>
+<condition/>
+<conditional>false</conditional>
+<name>RARAB Find the References of The Record</name>
+<run_as display_value="System Administrator">6816f79cc0a8016401c5a33be04be441</run_as>
+<run_as_tz/>
+<run_dayofmonth>1</run_dayofmonth>
+<run_dayofweek>1</run_dayofweek>
+<run_period/>
+<run_start>2019-03-18 10:52:24</run_start>
+<run_time>1969-12-31 23:00:00</run_time>
+<run_type>on_demand</run_type>
+<script><![CDATA[ var msg = '<b>Matching tables and columns where this record is referenced (if any) are displayed below...</b><br/>';
+ var recordString = '';
+ 
+var EncQuery = 'sys_id=81feb9c137101000deeabfc8bcbe5dc4';
+
+var myRec = new GlideRecord('cmdb_model_category');
+myRec.addEncodedQuery(EncQuery);
+myRec.query();
+
+if(myRec.next())
+{
+var refTable = new TableUtils('cmdb_model_category').getTables();
+gs.include("j2js");
+refTable = j2js(refTable).join();
+recordString = "Reference Table : "+ refTable+ "\n" ;
+
+var refRecordID = myRec.sys_id;
+recordString += "Reference ID : " + refRecordID+ "\n" ;
+}
+
+var dict = new GlideRecord('sys_dictionary');
+    dict.addQuery('reference', 'IN', refTable).addOrCondition('internal_type', 'document_id').addOrCondition('internal_type', 'conditions');
+    //Do not query audit and log fields
+    dict.addQuery('name', 'DOES NOT CONTAIN', 'var__m_');
+    dict.addQuery('name', 'DOES NOT CONTAIN', 'ecc_');
+    dict.addQuery('name', 'DOES NOT CONTAIN', 'ha_');
+    dict.addQuery('name', 'DOES NOT CONTAIN', 'syslog');
+    dict.addQuery('name', 'DOES NOT CONTAIN', 'sys_history');
+    dict.addQuery('name', 'DOES NOT CONTAIN', '_log');
+    dict.addQuery('name', 'DOES NOT CONTAIN', 'text_search');
+    dict.addQuery('name', 'DOES NOT CONTAIN', 'ts_');
+    dict.addQuery('name', 'DOES NOT CONTAIN', 'sys_watermark');
+    dict.addQuery('name', 'DOES NOT CONTAIN', 'sys_audit');
+    dict.orderBy('name');
+    dict.orderBy('element');
+    dict.query();
+
+gs.info(dict.getRowCount());
+
+
+while (dict.next()) {
+        var tblName = dict.name.toString();
+        // Skip tables used for Table Rotation
+        var gr = new GlideRecord("sys_table_rotation_schedule");
+        gr.addQuery("name.name", '!=', tblName);
+        gr.addQuery("table_name", tblName);
+        gr.query();
+        if (!gr.hasNext()) {
+            var recMessage = ' records found';
+            var filterOperator = '=';
+            var refType = dict.internal_type;
+            if (refType == 'glide_list' || refType == 'conditions') {
+                filterOperator = 'LIKE';
+            }
+
+            //Query each table for matching records
+            var rec = new GlideRecord(tblName);
+            if (refType == 'glide_list' || refType == 'conditions') {
+                rec.addQuery(dict.element, 'CONTAINS', refRecordID);
+            } else {
+                rec.addQuery(dict.element, refRecordID);
+            }
+            rec.query();
+            if (rec.getRowCount() == 1) {
+                recMessage = ' record found';
+            }
+            if (rec.getRowCount() > 0) {
+                //Display table/column info
+                msg += '<b>Table: </b><i>' + tblName + '</i>' + ' - <b>Column [Column type]: </b><i>' + dict.element + '</i> [' + dict.internal_type + ']' + ' --- ' + '<span style="color: #136fb0;">' + '<a href="' + dict.name + '_list.do?sysparm_query=' + dict.element + filterOperator + refRecordID + '" target="_blank" rel="noopener">' + rec.getRowCount() + recMessage + '</a></span>.<br/>' + '';
+				
+            }
+        }
+    }
+
+
+    //Query for workflow variable values
+    tblName = 'sys_variable_value';
+    var vVal = new GlideRecord(tblName);
+    vVal.addQuery('value', 'CONTAINS', refRecordID);
+    vVal.query();
+    if (vVal.getRowCount() == 1) {
+        recMessage = ' record found';
+    }
+
+    if (vVal.getRowCount() > 0) {
+        //Display table/column info
+        msg += '<b>Table: </b><i>' + tblName + '</i>' + ' - <b>Column [Column type]: </b><i>' + 'value' + '</i> [' + 'string' + ']' + ' --- ' + '<span style="color: #136fb0;">' + '<a href="' + tblName + '_list.do?sysparm_query=' + 'valueLIKE' + refRecordID + '" target="_blank" rel="noopener">' + vVal.getRowCount() + recMessage + '</a></span>' + '.' + '';
+		recordString += "Final Message: "+msg ;
+    }
+				
+
+
+//var gsa = new GlideSysAttachment();
+var attach=new Attachment();
+var tablename='sysauto_script';
+var sysid = '47a329c5db18bb00924950d3dc961933';
+
+var attachment = new GlideSysAttachment();
+var agr = attachment.getAllAttachments(tablename, sysid);
+while(agr.next()) {
+          attachment.deleteAttachment(agr.getValue("sys_id"));
+}
+
+
+
+attach.write(tablename,sysid,"RARAB_FindReference.html", 'html', recordString);
+//attach.write(tablename,sysid,"RARAB_FindReference.html", 'html', recordString);
+
+/*
+//Get the raw bytes in the file
+var bytesInFile = gsa.getBytes(tablename, sysid); 
+var dataAsString = Packages.java.lang.String(bytesInFile);
+//Re-convert to a string in Javascript, cause we don't trust Rhino.
+dataAsString = String(dataAsString);
+gs.info("RARAB:"+dataAsString);
+*/]]></script>
+<sys_class_name>sysauto_script</sys_class_name>
+<sys_created_by>TEMPRARAB</sys_created_by>
+<sys_created_on>2019-03-18 10:53:02</sys_created_on>
+<sys_customer_update>false</sys_customer_update>
+<sys_id>47a329c5db18bb00924950d3dc961933</sys_id>
+<sys_mod_count>33</sys_mod_count>
+<sys_name>RARAB Find the References of The Record</sys_name>
+<sys_package display_value="Global" source="global">global</sys_package>
+<sys_policy/>
+<sys_replace_on_upgrade>false</sys_replace_on_upgrade>
+<sys_scope display_value="Global">global</sys_scope>
+<sys_update_name>sysauto_script_47a329c5db18bb00924950d3dc961933</sys_update_name>
+<sys_updated_by>TEMPRARAB</sys_updated_by>
+<sys_updated_on>2019-03-19 13:42:39</sys_updated_on>
+<upgrade_safe>false</upgrade_safe>
+</sysauto_script>
+<sys_attachment action="INSERT_OR_UPDATE">
+<average_image_color/>
+<chunk_size_bytes>734003</chunk_size_bytes>
+<compressed>true</compressed>
+<content_type>html</content_type>
+<encryption_context display_value=""/>
+<file_name>RARAB_FindReference.html</file_name>
+<image_height/>
+<image_width/>
+<size_bytes>86</size_bytes>
+<size_compressed>97</size_compressed>
+<state/>
+<sys_created_by>admin</sys_created_by>
+<sys_created_on>2019-03-19 13:44:04</sys_created_on>
+<sys_id>1b845b55db10fb00b79bfb041d9619ec</sys_id>
+<sys_mod_count>0</sys_mod_count>
+<sys_updated_by>admin</sys_updated_by>
+<sys_updated_on>2019-03-19 13:44:04</sys_updated_on>
+<table_name>sysauto_script</table_name>
+<table_sys_id>47a329c5db18bb00924950d3dc961933</table_sys_id>
+</sys_attachment>
+<sys_attachment_doc action="INSERT_OR_UPDATE">
+<data>H4sIAAAAAAAAAA==</data>
+<length>16</length>
+<position>0</position>
+<sys_attachment display_value="RARAB_FindReference.html" sys_id="1b845b55db10fb00b79bfb041d9619ec">1b845b55db10fb00b79bfb041d9619ec</sys_attachment>
+<sys_created_by>admin</sys_created_by>
+<sys_created_on>2019-03-19 13:44:04</sys_created_on>
+<sys_id>5b845b55db10fb00b79bfb041d9619ec</sys_id>
+</sys_attachment_doc>
+<sys_attachment_doc action="INSERT_OR_UPDATE">
+<data>PcoxDoAgDAXQnVNwhDZqRGcXV+JOaPm4gCTExdvr5JufR0bHpbBHlAK7Wq1JQm0JJWi8cbb+GP+vffuK4wxZlIeZiYkoAVGyOlHBlHQ0L37XkghWAAAA</data>
+<length>116</length>
+<position>1</position>
+<sys_attachment display_value="RARAB_FindReference.html" sys_id="1b845b55db10fb00b79bfb041d9619ec">1b845b55db10fb00b79bfb041d9619ec</sys_attachment>
+<sys_created_by>admin</sys_created_by>
+<sys_created_on>2019-03-19 13:44:04</sys_created_on>
+<sys_id>db845b55db10fb00b79bfb041d9619ec</sys_id>
+</sys_attachment_doc>
+</unload>
